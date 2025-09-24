@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Campus Pathfinding System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            color: #0077cc;
+            padding: 20px;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 10px;
+            border-bottom: 1px solid #0077cc;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .content {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .panel {
+            flex: 1;
+            min-width: 300px;
+            padding: 15px;
+        }
+
+        .map-container {
+            flex: 2;
+            min-width: 400px;
+            height: 500px;
+            border: 1px solid #0077cc;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        select, button {
+            width: 100%;
+            padding: 8px;
+            background: #000;
+            color: #0077cc;
+            border: 1px solid #0077cc;
+            border-radius: 4px;
+        }
+
+        button {
+            margin-top: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background: #0077cc;
+            color: #000;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #0077cc;
+            display: none;
+        }
+
+        .result.active {
+            display: block;
+        }
+
+        .path-info {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0, 119, 204, 0.1);
+        }
+
+        .legend {
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                flex-direction: column;
+            }
+            
+            .panel, .map-container {
+                min-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Campus Pathfinding System</h1>
+            <p>Find the shortest path between campus locations</p>
+        </header>
+        
+        <div class="content">
+            <div class="panel">
+                <div class="form-group">
+                    <label for="start">Start Location:</label>
+                    <select id="start" required>
+                        <option value="">Select start location</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="goal">Goal Location:</label>
+                    <select id="goal" required>
+                        <option value="">Select goal location</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="algorithm">Pathfinding Algorithm:</label>
+                    <select id="algorithm" required>
+                        <option value="bfs">Breadth-First Search (BFS)</option>
+                        <option value="dfs">Depth-First Search (DFS)</option>
+                        <option value="ucs">Uniform Cost Search (UCS)</option>
+                    </select>
+                </div>
+                
+                <button id="findPath">Find Path</button>
+                
+                <div id="result" class="result">
+                    <h3>Path Found:</h3>
+                    <div id="pathResult"></div>
+                    <div id="costResult" class="path-info"></div>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #00cc00;"></div>
+                        <span>Start Location</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #ff0000;"></div>
+                        <span>Goal Location</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #0077cc;"></div>
+                        <span>Path</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Campus locations with updated coordinates
+        const locations = {
+            "Main Gate": [13.2200, 77.7539],
+            "ID Gate": [13.2214, 77.7549],
+            "Flag Pole": [13.2218, 77.7550],
+            "Admin Block": [13.2222, 77.7552],
+            "Library": [13.221971, 77.75558],
+            "Vendi": [13.222264, 77.755126],
+            "Cafeteria": [13.22242, 77.755158],
+            "Lawn Area": [13.222775, 77.755576],
+            "Block 2": [13.22336, 77.755963],
+            "Food Court": [13.224758, 77.75725],
+            "Hostel": [13.224195, 77.758613],
+            "Sports Area": [13.22887, 77.7572]
+        };
+
+        // Graph edges with approximate distances in meters
+        const edges = [
+            ["Main Gate", "ID Gate", 170],
+            ["ID Gate", "Flag Pole", 50],
+            ["Flag Pole", "Admin Block", 50],
+            ["Admin Block", "Library", 60],
+            ["Library", "Vendi", 30],
+            ["Vendi", "Cafeteria", 20],
+            ["Cafeteria", "Lawn Area", 40],
+            ["Lawn Area", "Block 2", 70],
+            ["Block 2", "Food Court", 150],
+            ["Food Court", "Hostel", 120],
+            ["Hostel", "Sports Area", 450],
+            ["Admin Block", "Vendi", 40],
+            ["Library", "Lawn Area", 80],
+            ["Block 2", "Hostel", 200]
+        ];
+
+        // Initialize the map
+        const map = L.map('map').setView([13.223, 77.756], 15);
+        
+        // Add a standard tile layer (not dark)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Create graph structure
+        const graph = {};
+        for (const [u, v, w] of edges) {
+            if (!graph[u]) graph[u] = [];
+            if (!graph[v]) graph[v] = [];
+            graph[u].push([v, w]);
+            graph[v].push([u, w]);
+        }
+
+        // Populate dropdowns with locations
+        const startSelect = document.getElementById('start');
+        const goalSelect = document.getElementById('goal');
+        
+        for (const location in locations) {
+            const option1 = document.createElement('option');
+            option1.value = location;
+            option1.textContent = location;
+            startSelect.appendChild(option1);
+            
+            const option2 = document.createElement('option');
+            option2.value = location;
+            option2.textContent = location;
+            goalSelect.appendChild(option2);
+        }
+
+        // Store markers and layers
+        let markers = {};
+        let pathLayer = null;
+        let startMarker = null;
+        let goalMarker = null;
+
+        // Add markers to the map
+        for (const [name, coords] of Object.entries(locations)) {
+            const marker = L.marker(coords).addTo(map);
+            
+            // Customize marker appearance
+            marker.bindPopup(`
+                <div style="text-align: center;">
+                    <strong>${name}</strong><br>
+                    <button onclick="setStartLocation('${name}')" style="background: #000; color: #0077cc; border: 1px solid #0077cc; padding: 3px 6px; margin: 3px; border-radius: 3px; cursor: pointer;">Set as Start</button>
+                    <button onclick="setGoalLocation('${name}')" style="background: #000; color: #0077cc; border: 1px solid #0077cc; padding: 3px 6px; margin: 3px; border-radius: 3px; cursor: pointer;">Set as Goal</button>
+                </div>
+            `);
+            
+            // Add label
+            L.tooltip({
+                permanent: true,
+                direction: 'top',
+                className: 'label-tooltip'
+            })
+            .setContent(name)
+            .setLatLng([coords[0] + 0.0001, coords[1]]) // Offset slightly
+            .addTo(map);
+            
+            markers[name] = marker;
+        }
+
+        // Pathfinding algorithms
+        function bfs(start, goal) {
+            const queue = [[start]];
+            const visited = new Set();
+            
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const node = path[path.length - 1];
+                
+                if (node === goal) return path;
+                
+                if (!visited.has(node)) {
+                    visited.add(node);
+                    
+                    for (const [neighbor] of graph[node] || []) {
+                        if (!visited.has(neighbor)) {
+                            queue.push([...path, neighbor]);
+                        }
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        function dfs(start, goal) {
+            const stack = [[start]];
+            const visited = new Set();
+            
+            while (stack.length > 0) {
+                const path = stack.pop();
+                const node = path[path.length - 1];
+                
+                if (node === goal) return path;
+                
+                if (!visited.has(node)) {
+                    visited.add(node);
+                    
+                    for (const [neighbor] of graph[node] || []) {
+                        if (!visited.has(neighbor)) {
+                            stack.push([...path, neighbor]);
+                        }
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        function ucs(start, goal) {
+            const priorityQueue = [{ cost: 0, path: [start] }];
+            const visited = new Set();
+            
+            while (priorityQueue.length > 0) {
+                // Sort by cost (priority queue simulation)
+                priorityQueue.sort((a, b) => a.cost - b.cost);
+                const { cost, path } = priorityQueue.shift();
+                const node = path[path.length - 1];
+                
+                if (node === goal) return { path, cost };
+                
+                if (!visited.has(node)) {
+                    visited.add(node);
+                    
+                    for (const [neighbor, weight] of graph[node] || []) {
+                        if (!visited.has(neighbor)) {
+                            priorityQueue.push({
+                                cost: cost + weight,
+                                path: [...path, neighbor]
+                            });
+                        }
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        // Update start marker
+        function updateStartMarker(location) {
+            if (startMarker) map.removeLayer(startMarker);
+            
+            if (locations[location]) {
+                startMarker = L.marker(locations[location], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+                
+                startMarker.bindPopup(`<strong>Start: ${location}</strong>`).openPopup();
+            }
+        }
+
+        // Update goal marker
+        function updateGoalMarker(location) {
+            if (goalMarker) map.removeLayer(goalMarker);
+            
+            if (locations[location]) {
+                goalMarker = L.marker(locations[location], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map);
+                
+                goalMarker.bindPopup(`<strong>Goal: ${location}</strong>`).openPopup();
+            }
+        }
+
+        // Draw path on the map
+        function drawPath(path) {
+            if (pathLayer) map.removeLayer(pathLayer);
+            
+            if (path && path.length > 1) {
+                const latlngs = path.map(location => locations[location]);
+                pathLayer = L.polyline(latlngs, {
+                    color: '#0077cc',
+                    weight: 6,
+                    opacity: 0.7,
+                    smoothFactor: 1
+                }).addTo(map);
+                
+                // Fit map to show the entire path
+                map.fitBounds(pathLayer.getBounds());
+            }
+        }
+
+        // Set start location from map click
+        window.setStartLocation = function(location) {
+            document.getElementById('start').value = location;
+            updateStartMarker(location);
+        };
+
+        // Set goal location from map click
+        window.setGoalLocation = function(location) {
+            document.getElementById('goal').value = location;
+            updateGoalMarker(location);
+        };
+
+        // Handle form submission
+        document.getElementById('findPath').addEventListener('click', function() {
+            const start = document.getElementById('start').value;
+            const goal = document.getElementById('goal').value;
+            const algorithm = document.getElementById('algorithm').value;
+            
+            if (!start || !goal) {
+                alert('Please select both start and goal locations');
+                return;
+            }
+            
+            if (start === goal) {
+                alert('Start and goal locations cannot be the same');
+                return;
+            }
+            
+            let path, cost;
+            
+            switch(algorithm) {
+                case 'bfs':
+                    path = bfs(start, goal);
+                    cost = null;
+                    break;
+                case 'dfs':
+                    path = dfs(start, goal);
+                    cost = null;
+                    break;
+                case 'ucs':
+                    const result = ucs(start, goal);
+                    path = result ? result.path : null;
+                    cost = result ? result.cost : null;
+                    break;
+            }
+            
+            const resultDiv = document.getElementById('result');
+            const pathResult = document.getElementById('pathResult');
+            const costResult = document.getElementById('costResult');
+            
+            if (path) {
+                resultDiv.classList.add('active');
+                pathResult.innerHTML = `<strong>Path: ${path.join(' → ')}</strong>`;
+                
+                if (cost !== null) {
+                    costResult.innerHTML = `<strong>Total Distance:</strong> ${cost} meters`;
+                } else {
+                    costResult.innerHTML = `<strong>Path Length:</strong> ${path.length - 1} steps`;
+                }
+                
+                drawPath(path);
+                updateStartMarker(start);
+                updateGoalMarker(goal);
+            } else {
+                resultDiv.classList.add('active');
+                pathResult.innerHTML = 'No path found between the selected locations';
+                costResult.innerHTML = '';
+                
+                if (pathLayer) {
+                    map.removeLayer(pathLayer);
+                    pathLayer = null;
+                }
+            }
+        });
+
+        // Initialize with sample values
+        document.getElementById('start').value = 'Main Gate';
+        document.getElementById('goal').value = 'Sports Area';
+        updateStartMarker('Main Gate');
+        updateGoalMarker('Sports Area');
+    </script>
+</body>
+</html>
