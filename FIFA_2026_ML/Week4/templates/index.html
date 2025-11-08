@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIFA World Cup 2026 Predictor</title>
+    <style>
+        body {font-family: 'Segoe UI', sans-serif; background: #0a0e17; color: #fff; margin: 0; padding: 20px;}
+        .container {max-width: 1000px; margin: auto; background: #1a2332; border-radius: 20px; overflow: hidden; box-shadow: 0 0 40px rgba(0,255,136,0.3);}
+        .header {background: linear-gradient(135deg, #00ff88, #00cc66); padding: 30px; text-align: center;}
+        h1 {margin: 0; font-size: 48px; color: #000;}
+        .subtitle {font-size: 24px; color: #000; font-weight: bold;}
+        .form-box {padding: 40px; text-align: center;}
+        select {width: 45%; padding: 18px; margin: 10px; background: #16213e; color: white; border: 2px solid #00ff88; border-radius: 12px; font-size: 18px;}
+        button {width: 92%; padding: 20px; background: #00ff88; color: black; border: none; border-radius: 12px; font-size: 24px; font-weight: bold; cursor: pointer; margin-top: 20px;}
+        button:hover {background: #00cc66;}
+        .result {margin: 30px; padding: 30px; background: #00ff8820; border-radius: 15px; text-align: center; font-size: 26px; border: 2px dashed #00ff88;}
+        .winner {font-size: 42px; font-weight: bold; color: #00ff88; margin: 15px 0;}
+        .prob {font-size: 28px; margin: 10px;}
+        .elo {font-size: 18px; color: #aaa; margin: 15px 0;}
+        footer {text-align: center; padding: 20px; color: #666; font-size: 16px;}
+        .badge {background: #000; color: #00ff88; padding: 8px 16px; border-radius: 20px; font-weight: bold; display: inline-block; margin-top: 10px;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>WORLD CUP 2026</h1>
+        <p class="subtitle">80% Accurate ML Predictor</p>
+    </div>
+
+    <div class="form-box">
+        <form method="POST">
+            <select name="team_a" required>
+                <option value="">Select Team A</option>
+                {% for team in teams %}
+                <option value="{{ team }}">{{ team }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="team_b" required>
+                <option value="">Select Team B</option>
+                {% for team in teams %}
+                <option value="{{ team }}">{{ team }}</option>
+                {% endfor %}
+            </select>
+
+            <button type="submit">PREDICT WINNER</button>
+        </form>
+    </div>
+
+    {% if prediction %}
+    <div class="result">
+        <div class="winner">{{ prediction.winner }} WILL WIN!</div>
+        <p><strong>{{ prediction.team_a }}</strong> vs <strong>{{ prediction.team_b }}</strong></p>
+        
+        <div class="elo">
+            {{ prediction.team_a }} ELO: <strong>{{ prediction.elo_a }}</strong> | 
+            {{ prediction.team_b }} ELO: <strong>{{ prediction.elo_b }}</strong> | 
+            Diff: <strong>{{ prediction.elo_diff }}</strong>
+        </div>
+
+        <div class="prob">Confidence: <strong>{{ prediction.confidence }}%</strong></div>
+        <hr style="border: 1px dashed #00ff88; margin: 20px 0;">
+        <div class="prob">{{ prediction.team_a }} Win: {{ prediction.team_a_win }}%</div>
+        <div class="prob">Draw: {{ prediction.draw }}%</div>
+        <div class="prob">{{ prediction.team_b }} Win: {{ prediction.team_b_win }}%</div>
+    </div>
+    {% endif %}
+
+    <footer>
+        Random Forest  80% Test Accuracy<br>
+    </footer>
+</div>
+</body>
+</html>
